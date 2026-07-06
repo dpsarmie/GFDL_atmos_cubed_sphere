@@ -2394,8 +2394,8 @@
 
 
   subroutine unit_vect_latlon(pp, elon, elat)
-      real(kind=R_GRID), intent(IN)  :: pp(2)
-      real(kind=R_GRID), intent(OUT) :: elon(3), elat(3)
+      real(kind=R_GRID), intent(IN)  :: pp(:)
+      real(kind=R_GRID), intent(OUT) :: elon(:), elat(:)
 
       real (f_p):: lon, lat
       real (f_p):: sin_lon, cos_lon, sin_lat, cos_lat
