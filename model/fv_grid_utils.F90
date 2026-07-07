@@ -314,7 +314,7 @@
 
      do j=jsd,jed+1
         do i=isd,ied+1
-           call latlon2xyz(grid(i,j,1:2), grid3(1,i,j))
+           call latlon2xyz(grid(i,j,1:2), grid3(1:3,i,j))
         enddo
      enddo
 
@@ -1768,8 +1768,8 @@
 !>@brief The subroutine 'latlon2xyz' maps (lon, lat) to (x,y,z)
  subroutine latlon2xyz(p, e, id)
 
- real(kind=R_GRID), intent(in) :: p(2)
- real(kind=R_GRID), intent(out):: e(3)
+ real(kind=R_GRID), intent(in) :: p(:)
+ real(kind=R_GRID), intent(out):: e(:)
  integer, optional, intent(in):: id !< id=0 do nothing; id=1, right_hand
 
  integer n
@@ -2808,8 +2808,8 @@
 
 
  subroutine cell_center2(q1, q2, q3, q4, e2)
-      real(kind=R_GRID) , intent(in ) :: q1(2), q2(2), q3(2), q4(2)
-      real(kind=R_GRID) , intent(out) :: e2(2)
+      real(kind=R_GRID) , intent(in ) :: q1(:), q2(:), q3(:), q4(:)
+      real(kind=R_GRID) , intent(out) :: e2(:)
 ! Local
       real(kind=R_GRID) p1(3), p2(3), p3(3), p4(3)
       real(kind=R_GRID) ec(3)
@@ -2830,7 +2830,7 @@
          ec(k) = ec(k) / dd
       enddo
 
-      call cart_to_latlon(1, ec, e2(1), e2(2))
+      call cart_to_latlon(1, ec, e2(1:1), e2(2:2))
 
  end subroutine cell_center2
 
