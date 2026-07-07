@@ -1262,7 +1262,7 @@
 
       do j=jsd,jed+1
          do i=isd,ied+1
-            call latlon2xyz(real(grid(i,j,1:2),kind=R_GRID), grid3(1,i,j))
+            call latlon2xyz(real(grid(i,j,1:2),kind=R_GRID), grid3(1:3,i,j))
          enddo
       enddo
 

@@ -315,8 +315,8 @@ contains
   subroutine get_symmetry(data_in, data_out, ishift, jshift, npes_x, npes_y, domain, tile, npx_g, bd)
     type(fv_grid_bounds_type), intent(IN) :: bd
     integer,                                      intent(in)  :: ishift, jshift, npes_x, npes_y
-    real(kind=R_GRID), dimension(bd%is:bd%ie+ishift, bd%js:bd%je+jshift ), intent(in)  :: data_in
-    real(kind=R_GRID), dimension(bd%is:bd%ie+jshift, bd%js:bd%je+ishift ), intent(out) :: data_out
+    real(kind=R_GRID), dimension(bd%is:, bd%js:), intent(in)  :: data_in
+    real(kind=R_GRID), dimension(bd%is:, bd%js:), intent(out) :: data_out
     real(kind=R_GRID),    dimension(:), allocatable :: send_buffer
     real(kind=R_GRID),    dimension(:), allocatable :: recv_buffer
     integer, dimension(:), allocatable :: is_recv, ie_recv, js_recv, je_recv, pe_recv
