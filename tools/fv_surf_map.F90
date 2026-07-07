@@ -10,7 +10,7 @@
 !* (at your option) any later version.
 !*
 !* The FV3 dynamical core is distributed in the hope that it will be
-!* useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+!* useful, but WITHOUT ANYWARRANTY; without even the implied warranty
 !* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 !* See the GNU General Public License for more details.
 !*
@@ -18,20 +18,56 @@
 !* License along with the FV3 dynamical core.
 !* If not, see <http://www.gnu.org/licenses/>.
 !***********************************************************************
-
  module fv_surf_map_mod
+
+! <table>
+! <tr>
+!     <th>Module Name</th>
+!     <th>Functions Included</th>
+!   </tr>
+!   <tr>
+!     <td>constants_mod</td>
+!     <td>grav, radius, pi=>pi_8</td>
+!   </tr>
+!   <tr>
+!     <td>fms_mod</td>
+!     <td>file_exist, check_nml_error,open_namelist_file, close_file,
+!         stdlog, mpp_pe, mpp_root_pe, FATAL, error_mesg</td>
+!   </tr>
+!   <tr>
+!     <td>fv_arrays_mod</td>
+!     <td>fv_grid_bounds_type, R_GRID</td>
+!   </tr>
+!   <tr>
+!     <td>fv_grid_utils_mod</td>
+!     <td>great_circle_dist, latlon2xyz, v_prod, normalize_vect,
+!         g_sum, global_mx, vect_cross</td>
+!   </tr>
+!   <tr>
+!     <td>fv_mp_mod</td>
+!     <td>ng,mp_stop, mp_reduce_min, mp_reduce_max, is_master</td>
+!   </tr>
+!   <tr>
+!     <td>fv_timing_mod</td>
+!     <td>timing_on, timing_off</td>
+!   </tr>
+!   <tr>
+!     <td>mpp_mod</td>
+!     <td>get_unit, input_nml_file, mpp_error,
+!         mpp_pe, mpp_chksum, stdout</td>
+!   </tr>
+!   <tr>
+!     <td>mpp_domains_mod</td>
+!     <td>mpp_update_domains, domain2d</td>
+!   </tr>
+! </table>
 
       use fms_mod,           only: check_nml_error, stdlog, &
                                    mpp_pe, mpp_root_pe, FATAL, error_mesg
       use fms2_io_mod,       only: file_exists
       use mpp_mod,           only: get_unit, input_nml_file, mpp_error
       use mpp_domains_mod,   only: mpp_update_domains, domain2d
-#ifdef OVERLOAD_R4
-      use constantsR4_mod,   only: grav, pi=>pi_8
-#else
-      use constants_mod,     only: grav, pi=>pi_8
-#endif
-
+      use constants_mod,     only: grav, radius, pi=>pi_8
 
       use fv_grid_utils_mod, only: great_circle_dist, latlon2xyz, v_prod, normalize_vect
       use fv_grid_utils_mod, only: g_sum, global_mx, vect_cross
@@ -54,31 +90,34 @@
 !      5min
 !         nlon = 4320
 !         nlat = 2160
-!    surf_format:      netcdf (only)
+!    surf_format:      netcdf (default)
+!                      binary
 ! New NASA SRTM30 data: SRTM30.nc
 !         nlon = 43200
 !         nlat = 21600
-      logical::  zs_filter = .true.          !< Perform filtering after creating topography. This option is not used for external_ic = .true. (that is controlled by fv_core_nml::full_zs_filter)
-      logical:: zero_ocean = .true.          !< limits diffusive flux into water/ocean area
-      integer           ::  nlon
-      integer           ::  nlat
+      logical::  zs_filter = .true.
+      logical:: zero_ocean = .true.          ! if true, no diffusive flux into water/ocean area
+      integer           ::  nlon = 21600
+      integer           ::  nlat = 10800
       real:: cd4 = 0.15      !< Dimensionless coeff for del-4 diffusion (with FCT)
       real:: cd2 = -1.       !< Dimensionless coeff for del-2 diffusion (-1 gives resolution-determined value)
       real:: peak_fac = 1.05 !< overshoot factor for the mountain peak
       real:: max_slope = 0.15 !< max allowable terrain slope: 1 --> 45 deg
-                              !< 0.15 for C768 or lower; 0.25 C1536; 0.3 for C3072
-      integer:: n_del2_weak = 12 !< number of passes of weak del-2 diffusion (cd2 = 0.12*da_min)
-      integer:: n_del2_strong = -1 !< number of passes of strong del-2 diffusion (in cd2 or hard-coded to 0.16*da_min)
-      integer:: n_del4 = -1 !< number of passes of del-4 diffusion
+                              !! 0.15 for C768 or lower; 0.25 C1536; 0.3 for C3072
+      integer:: n_del2_weak = 12
+      integer:: n_del2_strong = -1
+      integer:: n_del4 = -1
 
 
-      character(len=128)::  surf_file = "INPUT/topo1min.nc" !< source lat-lon file for on-line topography creation and filtering
+      character(len=128)::  surf_file = "INPUT/topo1min.nc"
+      character(len=6)  ::  surf_format = 'netcdf'
       logical :: namelist_read = .false.
 
+      real(kind=R_GRID) da_min
       real cos_grid
       character(len=3) :: grid_string = ''
 
-      namelist /surf_map_nml/ surf_file,zero_ocean, zs_filter, &
+      namelist /surf_map_nml/ surf_file,surf_format,nlon,nlat, zero_ocean, zs_filter, &
                     cd4, peak_fac, max_slope, n_del2_weak, n_del2_strong, cd2, n_del4
 !
       real, allocatable:: zs_g(:,:), sgh_g(:,:), oro_g(:,:)
@@ -125,7 +164,7 @@
       real(kind=4), allocatable ::  ft(:,:), zs(:,:)
       real, allocatable :: lon1(:),  lat1(:)
       real dx1, dx2, dy1, dy2, lats, latn, r2d
-      real(kind=R_GRID) da_max, da_min
+      real(kind=R_GRID) da_max
       real zmean, z2mean, delg, rgrav
 !     real z_sp, f_sp, z_np, f_np
       integer i, j, n, mdim
@@ -179,6 +218,7 @@
 ! surface file must be in NetCDF format
 !
       if ( file_exists(surf_file) ) then
+         if (surf_format == "netcdf") then
 
           status = nf_open (surf_file, NF_NOWRITE, ncid)
           if (status .ne. NF_NOERR) call handle_err(status)
@@ -197,12 +237,15 @@
 
           if ( is_master() ) then
               if ( nlon==43200 ) then
-                write(*,*) 'Opening NASA datset file:', surf_file, nlon, nlat
+                write(*,*) 'Opening NASA datset file:', surf_file, surf_format, nlon, nlat
               else
-                write(*,*) 'Opening USGS datset file:', surf_file, nlon, nlat
+                write(*,*) 'Opening USGS datset file:', surf_file, surf_format, nlon, nlat
               endif
           endif
 
+       else
+          call error_mesg ( 'surfdrv','Raw IEEE data format no longer supported !!!', FATAL )
+       endif
     else
        call error_mesg ( 'surfdrv','surface file '//trim(surf_file)//' not found !', FATAL )
     endif
@@ -232,91 +275,94 @@
 !-------------------------------------
       call timing_on('map_to_cubed')
 
+      if (surf_format == "netcdf") then
 
 !  Find latitude strips reading data
-      lats =  pi/2.
-      latn = -pi/2.
-      do j=js,je
-         do i=is,ie
-            lats = min( lats, grid(i,j,2), grid(i+1,j,2), grid(i,j+1,2), grid(i+1,j+1,2), agrid(i,j,2) )
-            latn = max( latn, grid(i,j,2), grid(i+1,j,2), grid(i,j+1,2), grid(i+1,j+1,2), agrid(i,j,2) )
+         lats =  pi/2.
+         latn = -pi/2.
+         do j=js,je
+            do i=is,ie
+               lats = min( lats, grid(i,j,2), grid(i+1,j,2), grid(i,j+1,2), grid(i+1,j+1,2), agrid(i,j,2) )
+               latn = max( latn, grid(i,j,2), grid(i+1,j,2), grid(i,j+1,2), grid(i+1,j+1,2), agrid(i,j,2) )
+            enddo
          enddo
-      enddo
 
 ! Enlarge the search zone:
 ! To account for the curvature of the coordinates:
 
-      !I have had trouble running c90 with 600 pes unless the search region is expanded
-      ! due to failures in finding latlon points in the source data.
-      !This sets a larger search region if the number of cells on a PE is too small.
-      !(Alternately you can just cold start the topography using a smaller number of PEs)
-      if (min(je-js+1,ie-is+1) < 15) then
-         delg = max( 0.4*(latn-lats), pi/real(npx_global-1), 2.*pi/real(nlat) )
-      else
-         delg = max( 0.2*(latn-lats), pi/real(npx_global-1), 2.*pi/real(nlat) )
+         !I have had trouble running c90 with 600 pes unless the search region is expanded
+         ! due to failures in finding latlon points in the source data.
+         !This sets a larger search region if the number of cells on a PE is too small.
+         !(Alternately you can just cold start the topography using a smaller number of PEs)
+         if (min(je-js+1,ie-is+1) < 15) then
+            delg = max( 0.4*(latn-lats), pi/real(npx_global-1), 2.*pi/real(nlat) )
+         else
+            delg = max( 0.2*(latn-lats), pi/real(npx_global-1), 2.*pi/real(nlat) )
+         endif
+         lats = max( -0.5*pi, lats - delg )
+         latn = min(  0.5*pi, latn + delg )
+
+         jstart = 1
+         do j=2,nlat
+            if ( lats < lat1(j) ) then
+                 jstart = j-1
+                 exit
+            endif
+         enddo
+         jstart = max(jstart-1, 1)
+
+         jend = nlat
+         do j=2,nlat
+            if ( latn < lat1(j+1) ) then
+                 jend = j+1
+                 exit
+            endif
+         enddo
+         jend = min(jend+1, nlat)
+
+         jt = jend - jstart + 1
+         igh = nlon/8 + nlon/(2*(npx_global-1))
+
+         if (is_master()) write(*,*) 'Terrain dataset =', nlon, 'jt=', jt
+         if (is_master()) write(*,*) 'igh (terrain ghosting)=', igh
+
+         status = nf_inq_varid (ncid, 'ftopo', ftopoid)
+         if (status .ne. NF_NOERR) call handle_err(status)
+         nread = 1;   start = 1
+         nread(1) = nlon
+         start(2) = jstart; nread(2) = jend - jstart + 1
+
+         allocate ( ft(-igh:nlon+igh,jt) )
+         status = nf_get_vara_real (ncid, ftopoid, start, nread, ft(1:nlon,1:jt))
+         if (status .ne. NF_NOERR) call handle_err(status)
+
+         do j=1,jt
+            do i=-igh,0
+               ft(i,j) = ft(i+nlon,j)
+            enddo
+            do i=nlon+1,nlon+igh
+               ft(i,j) = ft(i-nlon,j)
+            enddo
+         enddo
+
+         status = nf_inq_varid (ncid, 'htopo', htopoid)
+         if (status .ne. NF_NOERR) call handle_err(status)
+         allocate ( zs(-igh:nlon+igh,jt) )
+         status = nf_get_vara_real (ncid, htopoid, start, nread, zs(1:nlon,1:jt))
+         if (status .ne. NF_NOERR) call handle_err(status)
+         status = nf_close (ncid)
+         if (status .ne. NF_NOERR) call handle_err(status)
+! Ghost Data
+         do j=1,jt
+            do i=-igh,0
+               zs(i,j) = zs(i+nlon,j)
+            enddo
+            do i=nlon+1,nlon+igh
+               zs(i,j) = zs(i-nlon,j)
+            enddo
+         enddo
+
       endif
-      lats = max( -0.5*pi, lats - delg )
-      latn = min(  0.5*pi, latn + delg )
-
-      jstart = 1
-      do j=2,nlat
-         if ( lats < lat1(j) ) then
-            jstart = j-1
-            exit
-         endif
-      enddo
-      jstart = max(jstart-1, 1)
-
-      jend = nlat
-      do j=2,nlat
-         if ( latn < lat1(j+1) ) then
-            jend = j+1
-            exit
-         endif
-      enddo
-      jend = min(jend+1, nlat)
-
-      jt = jend - jstart + 1
-      igh = nlon/8 + nlon/(2*(npx_global-1))
-
-      if (is_master()) write(*,*) 'Terrain dataset =', nlon, 'jt=', jt
-      if (is_master()) write(*,*) 'igh (terrain ghosting)=', igh
-
-      status = nf_inq_varid (ncid, 'ftopo', ftopoid)
-      if (status .ne. NF_NOERR) call handle_err(status)
-      nread = 1;   start = 1
-      nread(1) = nlon
-      start(2) = jstart; nread(2) = jend - jstart + 1
-
-      allocate ( ft(-igh:nlon+igh,jt) )
-      status = nf_get_vara_real (ncid, ftopoid, start, nread, ft(1:nlon,1:jt))
-      if (status .ne. NF_NOERR) call handle_err(status)
-
-      do j=1,jt
-         do i=-igh,0
-            ft(i,j) = ft(i+nlon,j)
-         enddo
-         do i=nlon+1,nlon+igh
-            ft(i,j) = ft(i-nlon,j)
-         enddo
-      enddo
-
-      status = nf_inq_varid (ncid, 'htopo', htopoid)
-      if (status .ne. NF_NOERR) call handle_err(status)
-      allocate ( zs(-igh:nlon+igh,jt) )
-      status = nf_get_vara_real (ncid, htopoid, start, nread, zs(1:nlon,1:jt))
-      if (status .ne. NF_NOERR) call handle_err(status)
-      status = nf_close (ncid)
-      if (status .ne. NF_NOERR) call handle_err(status)
-      ! Ghost Data
-      do j=1,jt
-         do i=-igh,0
-            zs(i,j) = zs(i+nlon,j)
-         enddo
-         do i=nlon+1,nlon+igh
-            zs(i,j) = zs(i-nlon,j)
-         enddo
-      enddo
 
 ! special SP treatment:
 !     if ( jstart == 1 ) then
@@ -326,11 +372,11 @@
 
       allocate ( oro_g(isd:ied, jsd:jed) )
       allocate ( sgh_g(isd:ied, jsd:jed) )
-      call timing_on('map_to_cubed')
+                                                     call timing_on('map_to_cubed')
       call map_to_cubed_raw(igh, nlon, jt, lat1(jstart:jend+1), lon1, zs, ft, grid, agrid,  &
                             phis, oro_g, sgh_g, npx, npy, jstart, jend, stretch_fac, bounded_domain, npx_global, bd)
       if (is_master()) write(*,*) 'map_to_cubed_raw: master PE done'
-      call timing_off('map_to_cubed')
+                                                     call timing_off('map_to_cubed')
 
       deallocate ( zs )
       deallocate ( ft )
@@ -381,7 +427,7 @@
       if ( is_master() ) write(*,*) 'ORO', trim(grid_string), ' min=', da_min, ' Max=', da_max
 
       call global_mx(area, ng, da_min, da_max, bd)
-      call timing_on('Terrain_filter')
+                                                    call timing_on('Terrain_filter')
 ! Del-2: high resolution only
       if ( zs_filter ) then
          if(is_master()) then
@@ -444,9 +490,9 @@
       if ( is_master() ) write(*,*) 'Before filter SGH', trim(grid_string), ' min=', da_min, ' Max=', da_max
 
 
-      !-----------------------------------------------
-      ! Filter the standard deviation of mean terrain:
-      !-----------------------------------------------
+!-----------------------------------------------
+! Filter the standard deviation of mean terrain:
+!-----------------------------------------------
       call global_mx(area, ng, da_min, da_max, bd)
 
       if(zs_filter) call del4_cubed_sphere(npx, npy, sgh_g, area, dx, dy, dxc, dyc, sin_sg, 1, zero_ocean, oro_g, bounded_domain, domain, bd)
@@ -477,10 +523,10 @@
       real(kind=R_GRID), intent(IN):: stretch_fac
       logical, intent(IN) :: bounded_domain
       real, intent(inout):: phis(isd:ied,jsd,jed)
-      real, intent(inout):: oro(isd:ied,jsd,jed)
+      real, intent(in):: oro(isd:ied,jsd,jed)
       type(domain2d), intent(INOUT) :: domain
       integer mdim
-      real(kind=R_GRID) da_max, da_min
+      real(kind=R_GRID) da_max
 
       if (is_master()) print*, ' Calling FV3_zs_filter...'
 
@@ -531,7 +577,7 @@
    type(fv_grid_bounds_type), intent(IN) :: bd
    integer, intent(in):: npx, npy
    integer, intent(in):: ntmax
-   integer, intent(in):: filter_type    ! 0: strong,   1: weak
+   integer, intent(in):: filter_type    !< 0: strong,   1: weak
    real, intent(in):: cd
 ! INPUT arrays
    real(kind=R_GRID), intent(in)::area(bd%isd:bd%ied,  bd%jsd:bd%jed)
@@ -542,7 +588,7 @@
    real, intent(in):: dxc(bd%isd:bd%ied+1,bd%jsd:bd%jed)
    real, intent(in):: dyc(bd%isd:bd%ied,  bd%jsd:bd%jed+1)
    real, intent(in):: sin_sg(bd%isd:bd%ied,bd%jsd:bd%jed,9)
-   real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        ! 0==water, 1==land
+   real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        !< 0==water, 1==land
    logical, intent(in):: zero_ocean, check_slope
    logical, intent(in):: bounded_domain
    type(domain2d), intent(inout) :: domain
@@ -822,7 +868,7 @@
       real, intent(in):: dxc(bd%isd:bd%ied+1,bd%jsd:bd%jed)
       real, intent(in):: dyc(bd%isd:bd%ied,  bd%jsd:bd%jed+1)
       real, intent(IN):: sin_sg(bd%isd:bd%ied,bd%jsd:bd%jed,9)
-      real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        ! 0==water, 1==land
+      real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        !< 0==water, 1==land
       logical, intent(IN) :: bounded_domain
       type(domain2d), intent(INOUT) :: domain
     ! OUTPUT arrays
@@ -916,7 +962,7 @@
       type(fv_grid_bounds_type), intent(IN) :: bd
       integer, intent(in):: npx, npy, nmax
       logical, intent(in):: zero_ocean
-      real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        ! 0==water, 1==land
+      real, intent(in):: oro(bd%isd:bd%ied,  bd%jsd:bd%jed)        !< 0==water, 1==land
       real(kind=R_GRID), intent(in)::area(bd%isd:bd%ied,  bd%jsd:bd%jed)
       real, intent(in)::  dx(bd%isd:bd%ied,  bd%jsd:bd%jed+1)
       real, intent(in)::  dy(bd%isd:bd%ied+1,bd%jsd:bd%jed)
@@ -1145,16 +1191,17 @@
 
  end subroutine del4_cubed_sphere
 
+
  subroutine map_to_cubed_raw(igh, im, jt, lat1, lon1, zs, ft,  grid, agrid,  &
-                              phis, oro, sgh, npx, npy, jstart, jend, stretch_fac, &
+                              q2, f2, h2, npx, npy, jstart, jend, stretch_fac, &
                               bounded_domain, npx_global, bd)
 
 ! Input
       type(fv_grid_bounds_type), intent(IN) :: bd
       integer, intent(in):: igh, im, jt
       integer, intent(in):: npx, npy, npx_global
-      real, intent(in):: lat1(jt+1)       ! original southern edge of the cell [-pi/2:pi/2]
-      real, intent(in):: lon1(im+1)       ! original western edge of the cell [0:2*pi]
+      real, intent(in):: lat1(jt+1)       !< original southern edge of the cell [-pi/2:pi/2]
+      real, intent(in):: lon1(im+1)       !< original western edge of the cell [0:2*pi]
       real(kind=4), intent(in), dimension(-igh:im+igh,jt):: zs, ft
       real(kind=R_GRID), intent(in)::  grid(bd%isd:bd%ied+1, bd%jsd:bd%jed+1,2)
       real(kind=R_GRID), intent(in):: agrid(bd%isd:bd%ied,   bd%jsd:bd%jed,  2)
@@ -1162,9 +1209,9 @@
       real(kind=R_GRID), intent(IN) :: stretch_fac
       logical, intent(IN) :: bounded_domain
 ! Output
-      real, intent(out):: phis(bd%isd:bd%ied,bd%jsd:bd%jed) ! phis (surface geopotential) mapped data at the target resolution
-      real, intent(out):: oro(bd%isd:bd%ied,bd%jsd:bd%jed) ! oro (land mask)
-      real, intent(out):: sgh(bd%isd:bd%ied,bd%jsd:bd%jed) ! sgh variances of terrain
+      real, intent(out):: q2(bd%isd:bd%ied,bd%jsd:bd%jed) !< Mapped data at the target resolution
+      real, intent(out):: f2(bd%isd:bd%ied,bd%jsd:bd%jed) !< oro
+      real, intent(out):: h2(bd%isd:bd%ied,bd%jsd:bd%jed) !< variances of terrain
 ! Local
       real :: lon_g(-igh:im+igh)
       real lat_g(jt), cos_g(jt)
@@ -1215,7 +1262,7 @@
 
       do j=jsd,jed+1
          do i=isd,ied+1
-            call latlon2xyz(real(grid(i,j,1:2),kind=R_GRID), grid3(1,i,j))
+            call latlon2xyz(real(grid(i,j,1:2),kind=R_GRID), grid3(1:3,i,j))
          enddo
       enddo
 
@@ -1301,23 +1348,23 @@
                (i < is .and. j > je) .or. &
                (i > ie .and. j < js) .or. &
                (i > ie .and. j > je)) .and. .not. bounded_domain) then
-             phis(i,j) = 1.e25
-             oro(i,j) = 1.e25
-             sgh(i,j) = 1.e25
+             q2(i,j) = 1.e25
+             f2(i,j) = 1.e25
+             h2(i,j) = 1.e25
              goto 4444
           end if
 
           if ( agrid(i,j,2) < -pi5+stretch_fac*pi5/real(npx_global-1) ) then
 ! SP:
-               phis(i,j) = qsp
-               oro(i,j) = fsp
-               sgh(i,j) = hsp
+               q2(i,j) = qsp
+               f2(i,j) = fsp
+               h2(i,j) = hsp
                goto 4444
           elseif ( agrid(i,j,2) > pi5-stretch_fac*pi5/real(npx_global-1) ) then
 ! NP:
-               phis(i,j) = qnp
-               oro(i,j) = fnp
-               sgh(i,j) = hnp
+               q2(i,j) = qnp
+               f2(i,j) = fnp
+               h2(i,j) = hnp
                goto 4444
           endif
 
@@ -1416,9 +1463,9 @@
             enddo
 
             if ( np > 0 ) then
-                 phis(i,j) = qsum / asum
-                 oro(i,j) = fsum / asum
-                 sgh(i,j) = hsum / real(np) - phis(i,j)**2
+                 q2(i,j) = qsum / asum
+                 f2(i,j) = fsum / asum
+                 h2(i,j) = hsum / real(np) - q2(i,j)**2
                  min_pts = min(min_pts, np)
             else
                  write(*,*) 'min and max lat_g is ', r2d*minval(lat_g), r2d*maxval(lat_g), mpp_pe()
@@ -1430,7 +1477,7 @@
       enddo
     enddo
 
-    if(is_master()) write(*,*) 'surf_map: minimum pts per cell (master PE)=', min_pts
+      if(is_master()) write(*,*) 'surf_map: minimum pts per cell (master PE)=', min_pts
       if ( min_pts <3 ) then
            if(is_master()) write(*,*) 'Warning: too few points used in creating the cell mean terrain !!!'
       endif
@@ -1481,13 +1528,15 @@
  end function inside_p4
 #endif
 
+!>@brief The subroutine 'handle_err' returns an error when
+!! it cannot find or correctly read in an external file.
  subroutine handle_err(status)
 #include <netcdf.inc>
       integer          status
 
       if (status .ne. nf_noerr) then
         print *, nf_strerror(status)
-        stop 'fv_surf_map_mod: Stopped due to file error'
+        stop 'Stopped'
       endif
 
  end subroutine  handle_err
@@ -1542,11 +1591,8 @@
       enddo
  end subroutine remove_ice_sheets
 
-
-!#######################################################################
-! reads the namelist file, write namelist to log file,
-! and initializes constants
-
+!>@brief The subroutine 'read_namelis' reads the namelist file,
+!! writes the namelist to log file, and initializes constants.
 subroutine read_namelist
 
    integer :: unit, ierr, io
@@ -1570,6 +1616,7 @@ subroutine read_namelist
 
 end subroutine read_namelist
 
+!> The sugroutine 'zonal_mean' replaces 'p' with its zonal mean.
 subroutine zonal_mean(im, p, zmean)
 ! replace p with its zonal mean
    integer, intent(in):: im
