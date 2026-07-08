@@ -471,7 +471,7 @@ contains
   end subroutine a2b_ord2
 
   real function extrap_corner ( p0, p1, p2, q1, q2 )
-    real, intent(in ), dimension(2):: p0, p1, p2
+    real, intent(in ), dimension(:):: p0, p1, p2
     real, intent(in ):: q1, q2
     real:: x1, x2
 

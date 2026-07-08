@@ -3284,8 +3284,8 @@ end subroutine ytp_v
 
  real function edge_interpolate4(ua, dxa)
 
-   real, intent(in) :: ua(4)
-   real, intent(in) :: dxa(4)
+   real, intent(in) :: ua(:)
+   real, intent(in) :: dxa(:)
    real:: t1, t2
 
    t1 = dxa(1) + dxa(2)
