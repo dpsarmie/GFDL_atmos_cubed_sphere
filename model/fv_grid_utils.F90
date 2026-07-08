@@ -1191,12 +1191,12 @@
 !------------------------------------------------------------------
     do j=js-1,je+1
        if ( j<=jm2 ) then
-            d1 = great_circle_dist( py(1,j  ), p2(1,j) )
-            d2 = great_circle_dist( py(1,j+1), p2(1,j) )
+            d1 = great_circle_dist( py(1:2,j  ), p2(1:2,j) )
+            d2 = great_circle_dist( py(1:2,j+1), p2(1:2,j) )
             edge_vect_w(j) = d1 / ( d1 + d2 )
        else
-            d2 = great_circle_dist( py(1,j-1), p2(1,j) )
-            d1 = great_circle_dist( py(1,j  ), p2(1,j) )
+            d2 = great_circle_dist( py(1:2,j-1), p2(1:2,j) )
+            d1 = great_circle_dist( py(1:2,j  ), p2(1:2,j) )
             edge_vect_w(j) = d1 / ( d2 + d1 )
        endif
     enddo
@@ -1220,12 +1220,12 @@
 
     do j=js-1,je+1
        if ( j<=jm2 ) then
-            d1 = great_circle_dist( py(1,j  ), p2(1,j) )
-            d2 = great_circle_dist( py(1,j+1), p2(1,j) )
+            d1 = great_circle_dist( py(1:2,j  ), p2(1:2,j) )
+            d2 = great_circle_dist( py(1:2,j+1), p2(1:2,j) )
             edge_vect_e(j) = d1 / ( d1 + d2 )
        else
-            d2 = great_circle_dist( py(1,j-1), p2(1,j) )
-            d1 = great_circle_dist( py(1,j  ), p2(1,j) )
+            d2 = great_circle_dist( py(1:2,j-1), p2(1:2,j) )
+            d1 = great_circle_dist( py(1:2,j  ), p2(1:2,j) )
             edge_vect_e(j) = d1 / ( d2 + d1 )
        endif
     enddo
@@ -1252,12 +1252,12 @@
 !------------------------------------------------------------------
     do i=is-1,ie+1
        if ( i<=im2 ) then
-            d1 = great_circle_dist( px(1,i  ), p1(1,i) )
-            d2 = great_circle_dist( px(1,i+1), p1(1,i) )
+            d1 = great_circle_dist( px(1:2,i  ), p1(1:2,i) )
+            d2 = great_circle_dist( px(1:2,i+1), p1(1:2,i) )
             edge_vect_s(i) = d1 / ( d1 + d2 )
        else
-            d2 = great_circle_dist( px(1,i-1), p1(1,i) )
-            d1 = great_circle_dist( px(1,i  ), p1(1,i) )
+            d2 = great_circle_dist( px(1:2,i-1), p1(1:2,i) )
+            d1 = great_circle_dist( px(1:2,i  ), p1(1:2,i) )
             edge_vect_s(i) = d1 / ( d2 + d1 )
        endif
     enddo
@@ -1283,12 +1283,12 @@
 
     do i=is-1,ie+1
        if ( i<=im2 ) then
-            d1 = great_circle_dist( px(1,i  ), p1(1,i) )
-            d2 = great_circle_dist( px(1,i+1), p1(1,i) )
+            d1 = great_circle_dist( px(1:2,i  ), p1(1:2,i) )
+            d2 = great_circle_dist( px(1:2,i+1), p1(1:2,i) )
             edge_vect_n(i) = d1 / ( d1 + d2 )
        else
-            d2 = great_circle_dist( px(1,i-1), p1(1,i) )
-            d1 = great_circle_dist( px(1,i  ), p1(1,i) )
+            d2 = great_circle_dist( px(1:2,i-1), p1(1:2,i) )
+            d1 = great_circle_dist( px(1:2,i  ), p1(1:2,i) )
             edge_vect_n(i) = d1 / ( d2 + d1 )
        endif
     enddo
@@ -1356,8 +1356,8 @@
        call mid_pt_sphere(agrid(i-1,j,1:2), agrid(i,j,1:2), py(1,j))
     enddo
     do j=max(2,js), min(npy-1,je+1)
-       d1 = great_circle_dist( py(1,j-1), grid(i,j,1:2) )
-       d2 = great_circle_dist( py(1,j  ), grid(i,j,1:2) )
+       d1 = great_circle_dist( py(1:2,j-1), grid(i,j,1:2) )
+       d2 = great_circle_dist( py(1:2,j  ), grid(i,j,1:2) )
        edge_w(j) = d2 / ( d1 + d2 )
     enddo
  endif
@@ -1372,8 +1372,8 @@
        call mid_pt_sphere(agrid(i-1,j,1:2), agrid(i,j,1:2), py(1,j))
     enddo
     do j=max(2,js), min(npy-1,je+1)
-       d1 = great_circle_dist( py(1,j-1), grid(i,j,1:2) )
-       d2 = great_circle_dist( py(1,j  ), grid(i,j,1:2) )
+       d1 = great_circle_dist( py(1:2,j-1), grid(i,j,1:2) )
+       d2 = great_circle_dist( py(1:2,j  ), grid(i,j,1:2) )
        edge_e(j) = d2 / ( d1 + d2 )
 ! Check rounding difference:
 !      if(is_master()) write(*,*) j, edge_w(j) - edge_e(j)
@@ -1391,8 +1391,8 @@
        call mid_pt_sphere(agrid(i,j-1,1:2), agrid(i,j,1:2), px(1,i))
     enddo
     do i=max(2,is), min(npx-1,ie+1)
-       d1 = great_circle_dist( px(1,i-1), grid(i,j,1:2) )
-       d2 = great_circle_dist( px(1,i  ), grid(i,j,1:2) )
+       d1 = great_circle_dist( px(1:2,i-1), grid(i,j,1:2) )
+       d2 = great_circle_dist( px(1:2,i  ), grid(i,j,1:2) )
        edge_s(i) = d2 / ( d1 + d2 )
     enddo
  endif
@@ -1407,8 +1407,8 @@
        call mid_pt_sphere(agrid(i,j-1,1:2), agrid(i,j,1:2), px(1,i))
     enddo
     do i=max(2,is), min(npx-1,ie+1)
-       d1 = great_circle_dist( px(1,i-1), grid(i,j,1:2) )
-       d2 = great_circle_dist( px(1,i  ), grid(i,j,1:2) )
+       d1 = great_circle_dist( px(1:2,i-1), grid(i,j,1:2) )
+       d2 = great_circle_dist( px(1:2,i  ), grid(i,j,1:2) )
        edge_n(i) = d2 / ( d1 + d2 )
 !      if(is_master()) write(*,*) i, edge_s(i), edge_n(i)-edge_s(i)
     enddo
@@ -2161,7 +2161,7 @@
 
 
  real function great_circle_dist( q1, q2, radius )
-      real(kind=R_GRID), intent(IN)           :: q1(2), q2(2)
+      real(kind=R_GRID), intent(IN)           :: q1(:), q2(:)
       real(kind=R_GRID), intent(IN), optional :: radius
 
       real (f_p):: p1(2), p2(2)
