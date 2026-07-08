@@ -2421,7 +2421,7 @@
 
 
   real(kind=R_GRID) function v_prod(v1, v2)
-  real(kind=R_GRID) v1(3), v2(3)
+  real(kind=R_GRID) v1(:), v2(:)
 
        v_prod = v1(1)*v2(1) + v1(2)*v2(2) + v1(3)*v2(3)
 
